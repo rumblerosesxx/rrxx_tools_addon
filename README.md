@@ -4,6 +4,8 @@ Blender import/export of Rumble Roses XX model files
 
 Originally written by anonymous loverslab member, based on maxscript from mariokart64n.
 
+NSFW link: https://www.loverslab.com/topic/54420-rumble-roses-xx-nude-mod-xbox360/page/3/
+
 With this addon, you can import Rumble Roses XX model (meshes and bones) and export it back (vertex position/UV/normal/weight/color).
 
 Please don't earn money with this addon.
