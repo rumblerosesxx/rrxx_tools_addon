@@ -42,7 +42,7 @@ class YobjData:
         self.texNames = []
         f.seek(self.texNameOfs)
         for i in range(self.texCount):
-            self.texNames.append( unpack("16s", f.read(16))[0].decode().strip("\0") )
+            self.texNames.append( unpack("16s", f.read(16))[0].decode("sjis").strip("\0") )
 
         self.objGroupNames = []
         f.seek(self.objGroupNameOfs)
@@ -261,7 +261,7 @@ class ObjData:
         self.weightOfs = unpack(">I", f.read(4))[0] + START_OFS
         self.uvOfs = unpack(">I", f.read(4))[0] + START_OFS
         assert unpack(">I", f.read(4))[0] == 1
-        self.yName = unpack("16s", f.read(16))[0].decode().strip("\0")  # yBumpMap, etc.
+        self.yName = unpack("16s", f.read(16))[0].decode("sjis").strip("\0")  # yBumpMap, etc.
         self.unks += unpack(">I", f.read(4))
         self.unks += unpack(">I", f.read(4))
         self.texCount = unpack(">I", f.read(4))[0]
@@ -327,7 +327,7 @@ class ObjData:
 class BoneData:
     def __init__(self, f, id):
         self.id = id
-        self.name = unpack("16s", f.read(16))[0].decode().strip("\0")
+        self.name = unpack("16s", f.read(16))[0].decode("sjis").strip("\0")
         self.pos = unpack(">4f", f.read(16))
         assert self.pos[3] == 0.0
         self.rot = unpack(">4f", f.read(16))
