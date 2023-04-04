@@ -1,7 +1,7 @@
 bl_info = {
     "name": "RRXX Tools",
     "author": "loverslab member (Thanks to mariokart64n for original Max script)",
-    "version": (1, 0, 1),
+    "version": (1, 0, 2),
     "blender": (2, 79, 0),
     "location": "View3D > Tool Shelf > Misc Tab",
     "description": "",
