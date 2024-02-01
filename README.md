@@ -8,9 +8,8 @@ NSFW link: https://www.loverslab.com/topic/54420-rumble-roses-xx-nude-mod-xbox36
 
 With this addon, you can import Rumble Roses XX model (meshes and bones) and export it back (vertex position/UV/normal/weight/color).
 
-Please don't earn money with this addon.
 
-Respect game author. Thanks!
+![Menu](https://github.com/rumblerosesxx/rrxx_tools_addon/blob/3820adef217425b0c6de9203da956228b01a8bdc/menu.png)
 
  
 
@@ -54,6 +53,10 @@ https://www.youtube.com/playlist?list=PLgeoiwC2u6R6SaRFDAZCI9J_QUoptVmcK
 
 Changelog:
 
+ - v1.0.3: Port to blender 3.5
+
+ - v1.0.2: Fix Shift-JIS name issue
+   
  - v1.0.1: Fixed error when exporting
 
  - v1.0.0: Initial release
