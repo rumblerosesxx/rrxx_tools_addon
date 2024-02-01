@@ -1,8 +1,8 @@
 bl_info = {
     "name": "RRXX Tools",
     "author": "loverslab member (Thanks to mariokart64n for original Max script)",
-    "version": (1, 0, 2),
-    "blender": (2, 79, 0),
+    "version": (1, 0, 3),
+    "blender": (3, 5, 0),
     "location": "View3D > Tool Shelf > Misc Tab",
     "description": "",
     "warning": "",
@@ -12,10 +12,11 @@ bl_info = {
 import bpy
 import math, re, os
 from struct import pack, unpack
-from mathutils import Vector, Matrix, Euler
+from mathutils import Vector, Matrix, Euler, Quaternion
 
 ####### const
 START_OFS = 8
+
 
 ####### YobjData
 class YobjData:
@@ -64,51 +65,48 @@ class YobjData:
             f.seek(self.meshOfs + 180 * i)
             self.objs.append(ObjData(f, i, self.objGroupNames, self.boneNames))
 
-    def importModel(self, modelName):
-        ## create armature
+    def importModel(self, modelName, logger):
+        # create armature
         bpy.ops.object.armature_add(location=(0, 0, 0))
         armature = bpy.context.object
-        armature.show_x_ray = True
-        armature.data.draw_type = "STICK"
+        armature.show_in_front = True
+        armature.data.display_type = "STICK"
         armature.name = modelName
         armature.rotation_euler[0] = math.radians(-90)
         armature.scale = Vector((0.1, ) * 3)
         armature.location = Vector((0, 0, 1.115))
 
-        bpy.ops.object.mode_set(mode="EDIT")
-        for i, bone in enumerate(self.bones):
-            if i > 0:
-                bpy.ops.armature.bone_primitive_add()
-            eBone = bpy.context.object.data.edit_bones[-1]
-            eBone.name = bone.name
-            if "prop_childCount" not in eBone:
-                eBone["prop_childCount"] = 0
-            eBone.head = Vector((0, 0, 0))
-            eBone.tail = Vector((1, 0, 0))
-            eBone.length = 0.5
-            eBone.transform( Euler(bone.rot[0:3]).to_matrix().to_4x4(), roll=False )
-            eBone.transform( Matrix.Translation(bone.pos[0:3]), roll=False )
+       # TODO: re-enable armature import once it works properly
+       #bpy.ops.object.mode_set(mode="EDIT")
+       #for i, bone in enumerate(self.bones):
+       #    if i > 0:
+       #        bpy.ops.armature.bone_primitive_add()
+       #    eBone = armature.data.edit_bones[-1]
+       #    eBone.name = bone.name
+       #    if "prop_childCount" not in eBone:
+       #        eBone["prop_childCount"] = 0
+       #    eBone.head = bpy.context.object.data.edit_bones[-2].tail if i > 0 else Vector((0, 0, 0))
+       #    eBone.tail = Vector((0, 0, 0.5))
+       #    eBone.length = 0.5
+       #    eBone.matrix = Euler(bone.rot[0:3]).to_matrix().to_4x4() @ Matrix.Translation(bone.pos[0:3])
+       #   
+       #    if bone.parentId >= 0:
+       #        eBone.parent = armature.data.edit_bones[ self.bones[bone.parentId].name ]
+       #        eBone.parent["prop_id"] = bone.parentId
+       #        eBone.parent["prop_childCount"] += 1
+       #    for pBone in eBone.parent_recursive:
+       #        parentBone = self.bones[pBone["prop_id"]]
+       #        eBone.matrix = Euler(bone.rot[0:3]).to_matrix().to_4x4() @ Matrix.Translation(bone.pos[0:3])
 
-            if bone.parentId >= 0:
-                eBone.parent = bpy.context.object.data.edit_bones[ self.bones[bone.parentId].name ]
-                eBone.parent["prop_id"] = bone.parentId
-                eBone.parent["prop_childCount"] += 1
-            for pBone in eBone.parent_recursive:
-                parentBone = self.bones[pBone["prop_id"]]
-                eBone.transform(
-                    Matrix.Translation(parentBone.pos[0:3]) *
-                    Euler(parentBone.rot[0:3]).to_matrix().to_4x4()
-                    , roll=False
-                )
 
-        for eBone in reversed(bpy.context.object.data.edit_bones):   # fix orient
-            for pBone in eBone.parent_recursive:
-                if pBone["prop_childCount"] == 1 or \
-                    pBone.name + "_d" == eBone.name or \
-                    pBone.name + "_x" == eBone.name:
-                        pBone.tail = eBone.head.copy()
-
-        bpy.ops.object.mode_set(mode="OBJECT")
+       #for eBone in reversed(armature.data.edit_bones):   # fix orient
+       #    for pBone in eBone.parent_recursive:
+       #        if pBone["prop_childCount"] == 1 or \
+       #            pBone.name + "_d" == eBone.name or \
+       #            pBone.name + "_x" == eBone.name:
+       #                pBone.tail = eBone.head.copy()
+       #
+       #bpy.ops.object.mode_set(mode="OBJECT")
 
         ## create meshes
         for obj in self.objs:
@@ -118,11 +116,11 @@ class YobjData:
             mesh.use_auto_smooth = True
             mesh.normals_split_custom_set_from_vertices(obj.normals)
             ob = bpy.data.objects.new(obj.name, mesh)
-            bpy.context.scene.objects.link(ob)
-            bpy.context.scene.objects.active = ob
+            bpy.context.scene.collection.objects.link(ob)
+            bpy.context.view_layer.objects.active = ob
             ob.location = Vector((0, 0, 0))
             ob.parent = armature
-            ob.hide = (obj.vertCount == 0)
+            ob.hide_set(obj.vertCount == 0)
 
             bpy.ops.mesh.uv_texture_add()
             uvMap = mesh.uv_layers[0]
@@ -132,18 +130,20 @@ class YobjData:
                     uvMap.data[loopIdx].uv = obj.uvs[vIdx]
 
             for boneId in obj.boneIds:
-                ob.vertex_groups.new(self.bones[boneId].name)
+                ob.vertex_groups.new(name=self.bones[boneId].name)
             for i in range(obj.vertCount):
                 for boneId, weight in obj.weights[i]:
                     ob.vertex_groups[self.bones[boneId].name].add([i], weight, "REPLACE")
 
-            bpy.ops.mesh.vertex_color_add()
-            colMap = mesh.vertex_colors[0]
+            #bpy.ops.mesh.vertex_color_add()
+            #colMap = mesh.vertex_colors[0]
+            mesh.vertex_colors.new()
+            colMap = mesh.vertex_colors.active
             for fIdx, poly in enumerate(mesh.polygons):
                 for vNum, loopIdx in enumerate(poly.loop_indices):
                     vIdx = poly.vertices[vNum]
-                    colMap.data[loopIdx].color = obj.colors[vIdx][0:3]
-
+                    colMap.data[loopIdx].color = obj.colors[vIdx][0:4]
+            
             # remember obj id
             ob["prop_id"] = obj.id
             # modifier
@@ -151,15 +151,18 @@ class YobjData:
             ob.modifiers[-1].object = armature
 
 
-    def modifyModel(self, outFilepath):
-        selectedObjects = getSelectedObjects()
+    def modifyModel(self, outFilepath, logger):
+        selected = set(getSelectedObjects())
+        selectedObjects = [ob for ob in bpy.context.scene.objects if ob in selected or ob.parent in selected]
         if len(selectedObjects) == 0:
             return
 
         self.inFile.seek(0)
         data = bytearray(self.inFile.read())
         for ob in selectedObjects:
+            logger({"INFO"}, "processing " + ob.name)
             if "prop_id" not in ob:
+                logger({"INFO"}, "skipping " + ob.name)
                 continue
             mesh = ob.data
             obj = self.objs[ob["prop_id"]]
@@ -186,7 +189,7 @@ class YobjData:
             # set vert, normal, color
             ofs = obj.vertOfs2
             for i in range(obj.vertCount):
-                if ob.hide == False:
+                if ob.hide_get() == False:
                     data[ofs : ofs + 12] = pack(">3f", *ob.data.vertices[i].co.to_tuple())
                 else:
                     data[ofs : ofs + 12] = pack(">3f", 0, 0, 0)
@@ -218,7 +221,7 @@ class YobjData:
             vgroups = [ ob.vertex_groups[name] for name in obj.boneNames if name in ob.vertex_groups ]
             for i, vert in enumerate(mesh.vertices):
                 curVgroups = []  # vertex groups having bone weight
-                if ob.hide == False:
+                if ob.hide_get() == False:
                     for vg in vgroups:
                         try:
                             if vg.weight(i) > 0.0001:
@@ -342,8 +345,8 @@ class BoneData:
 class RRXXOpsImport(bpy.types.Operator):
     bl_idname = "import.rrxx"
     bl_label = "Import RRXX Model"
-    filepath = bpy.props.StringProperty(subtype="FILE_PATH")
-    filename = bpy.props.StringProperty(subtype="FILE_NAME")
+    filepath : bpy.props.StringProperty(subtype="FILE_PATH")
+    filename : bpy.props.StringProperty(subtype="FILE_NAME")
 
     @classmethod
     def poll(cls, context):
@@ -357,7 +360,7 @@ class RRXXOpsImport(bpy.types.Operator):
         self.report({'INFO'}, "loading " + self.filepath)
         with open(self.filepath, "rb") as f:
             yobj = YobjData(f)
-            yobj.importModel(self.filename)
+            yobj.importModel(self.filename, self.report)
             bpy.ops.object.select_all(action="DESELECT")
             self.report({'INFO'}, "finished")
         return {'FINISHED'}
@@ -366,8 +369,8 @@ class RRXXOpsImport(bpy.types.Operator):
 class RRXXOpsExport(bpy.types.Operator):
     bl_idname = "export.rrxx"
     bl_label = "Export RRXX Model"
-    filepath = bpy.props.StringProperty(subtype="FILE_PATH")
-    filename = bpy.props.StringProperty(subtype="FILE_NAME")
+    filepath : bpy.props.StringProperty(subtype="FILE_PATH")
+    filename : bpy.props.StringProperty(subtype="FILE_NAME")
 
     @classmethod
     def poll(cls, context):
@@ -384,7 +387,7 @@ class RRXXOpsExport(bpy.types.Operator):
             os.makedirs(outDir, exist_ok=True)
             outFilepath = outDir + self.filename
             self.report({'INFO'}, "saving to " + outFilepath)
-            yobj.modifyModel(outFilepath)
+            yobj.modifyModel(outFilepath, self.report)
             self.report({'INFO'}, "finished")
         return {'FINISHED'}
 
@@ -399,7 +402,7 @@ class RRXXOpsSelectChildren(bpy.types.Operator):
 
     def execute(self, context):
         for ob in context.object.children:
-            ob.select = True
+            ob.select_set(True)
         return {'FINISHED'}
 
 ####### RRXXPanel
@@ -410,27 +413,37 @@ class RRXXPanel(bpy.types.Panel):
     bl_region_type = "TOOLS"
 
     def draw(self, context):
-        l = self.layout
-        l.row().label("1. Import *.yobj or *.ymxen file.")
-        l.row().operator("import.rrxx", icon="FILESEL")
-        l.row().label("2. Edit vertex position/UV/normal/weight/color.")
-        l.row().label("3. Select Armature and child objects.")
-        l.row().operator("object.rrxx_select_children", icon="RESTRICT_SELECT_OFF")
-        l.row().label("4. Export.")
-        l.row().label("Select original file and you will get new file in MOD dir.")
-        l.row().operator("export.rrxx", icon="SAVE_PREFS")
-        l.row().label("5. Don't earn money with mod. Respect game author. Thanks!")
+        l = self.layout.box()
+        l.row().label(text="1. Import *.yobj or *.ymxen file.")
+        l.row().operator("import.rrxx")
+        l.row().label(text="2. Edit vertex position/UV/normal/weight/color.")
+        l.row().label(text="3. Select Armature and child objects.")
+        l.row().operator("object.rrxx_select_children")
+        l.row().label(text="4. Export.")
+        l.row().label(text="Select original file and you will get new file in MOD dir.")
+        l.row().operator("export.rrxx")
+
 
 ####### getSelectedObjects
 def getSelectedObjects():
-    return [ob for ob in bpy.context.scene.objects if ob.select == True]
+    return [ob for ob in bpy.context.scene.objects if ob.select_get() == True]
 
 ######################## register
+
+register_classes = (
+    RRXXPanel,
+    RRXXOpsImport,
+    RRXXOpsExport,
+    RRXXOpsSelectChildren
+)
+
 def register():
-    bpy.utils.register_module(__name__)
+    for cls in register_classes:
+        bpy.utils.register_class(cls)
 
 def unregister():
-    bpy.utils.unregister_module(__name__)
+    for cls in register_classes:
+        bpy.utils.unregister_class(cls)
 
 if __name__ == "__main__":
     register()
